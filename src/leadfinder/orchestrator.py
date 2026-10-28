@@ -98,6 +98,10 @@ class Pipeline:
         leads: list[Lead] = []
         leads_lock = asyncio.Lock()
 
+        # Reset LLM availability for each run (scorer is reused across requests).
+        if hasattr(self._scorer, "llm_available"):
+            self._scorer.llm_available = True
+
         intent_holder: dict[str, Any] = {}
         queues = self._create_queues()
 
@@ -224,17 +228,22 @@ class Pipeline:
             try:
                 scored = await self._scorer.score(intent_json, to_score)
             except Exception as exc:
+                if hasattr(self._scorer, "llm_available"):
+                    self._scorer.llm_available = False
                 self._log.warning("score.batch_error", error=str(exc)[:160])
                 scored = [self._unknown(c) for c in to_score]
             for s in scored:
                 m.items_out += 1
-                if s.match >= self._min_score:
-                    lead = self._build_lead(s)
-                    async with leads_lock:
-                        leads.append(lead)
-                        self._metrics.matched += 1
-                        if len(leads) >= self._max_results:
-                            self._stop.set()
+                # When the LLM scorer is unavailable, include all candidates
+                # regardless of --min-score so the user still sees results.
+                if getattr(self._scorer, "llm_available", True) and s.match < self._min_score:
+                    continue
+                lead = self._build_lead(s)
+                async with leads_lock:
+                    leads.append(lead)
+                    self._metrics.matched += 1
+                    if len(leads) >= self._max_results:
+                        self._stop.set()
 
         while not self._stop.is_set():
             try:

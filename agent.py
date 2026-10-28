@@ -47,11 +47,12 @@ def build_pipeline(
     pages: int,
     search_concurrency: int,
     llm_concurrency: int,
+    no_llm: bool = False,
 ) -> Pipeline:
     llm = LLM(requests_per_second=float(llm_concurrency))
     planner = Planner(llm)
     search = GoogleCSEProvider(concurrency=search_concurrency)
-    scorer = Scorer(llm)
+    scorer = Scorer(llm, no_llm=no_llm)
     return Pipeline(
         planner=planner,
         llm=llm,
@@ -105,6 +106,7 @@ def run_once(args: argparse.Namespace) -> int:
             pages=args.pages,
             search_concurrency=args.search_concurrency,
             llm_concurrency=args.llm_concurrency,
+            no_llm=args.no_llm,
         )
         try:
             leads = asyncio.run(_run_and_close(pipeline, args.request))
@@ -133,43 +135,56 @@ def interactive(args: argparse.Namespace) -> int:
     verbose = args.verbose or args.debug
     console.print("[bold]leadfinder interactive terminal[/bold]")
     console.print("Type a recruiting request, or 'exit'/'quit' to leave.\n")
-    while True:
-        console.print("[bold cyan]leadfinder>[/bold cyan] ", end="")
-        sys.stdout.flush()
-        request = _read_request()
-        if request is None:
-            console.print()
-            break
-        request = request.strip()
-        if not request:
-            continue
-        if request.lower() in {"exit", "quit", "q"}:
-            break
 
-        pipeline = None
-        try:
-            pipeline = build_pipeline(
-                max_results=args.max_results,
-                min_score=args.min_score,
-                pages=args.pages,
-                search_concurrency=args.search_concurrency,
-                llm_concurrency=args.llm_concurrency,
-            )
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    pipeline = None
+    try:
+        pipeline = build_pipeline(
+            max_results=args.max_results,
+            min_score=args.min_score,
+            pages=args.pages,
+            search_concurrency=args.search_concurrency,
+            llm_concurrency=args.llm_concurrency,
+            no_llm=args.no_llm,
+        )
+        while True:
+            console.print("[bold cyan]leadfinder>[/bold cyan] ", end="")
+            sys.stdout.flush()
+            request = _read_request()
+            if request is None:
+                console.print()
+                break
+            request = request.strip()
+            if not request:
+                continue
+            if request.lower() in {"exit", "quit", "q"}:
+                break
+
             try:
-                leads = asyncio.run(_run_and_close(pipeline, request))
+                leads = loop.run_until_complete(pipeline.run(request))
             except KeyboardInterrupt:
                 console.print("\n[yellow]interrupted[/yellow]")
                 leads = []
             except Exception as exc:  # noqa: BLE001 - one bad request won't kill the session
                 _handle_error(exc, verbose, "request")
                 leads = []
-        except Exception as exc:  # noqa: BLE001 - pipeline build failure won't kill the session
-            _handle_error(exc, verbose, "setup")
-            leads = []
 
+            if pipeline is not None:
+                display(leads, pipeline, args.format, args.out)
+            console.print()
+    except Exception as exc:  # noqa: BLE001 - pipeline build failure won't kill the session
+        _handle_error(exc, verbose, "setup")
+    finally:
         if pipeline is not None:
-            display(leads, pipeline, args.format, args.out)
-        console.print()
+            try:
+                loop.run_until_complete(pipeline.close())
+            except Exception:  # noqa: S110 - shutdown must not raise
+                pass
+        try:
+            loop.close()
+        except Exception:  # noqa: S110 - loop close must not raise
+            pass
     return 0
 
 
@@ -193,6 +208,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="Search concurrency.")
     parser.add_argument("--llm-concurrency", type=int, default=settings.LLM_CONCURRENCY,
                         help="LLM concurrency.")
+    parser.add_argument("--no-llm", action="store_true",
+                        help="Skip the LLM scorer entirely (instant keyword fallback).")
     parser.add_argument("--format", default="table", help="table|csv|json.")
     parser.add_argument("--out", default=None, help="Write CSV/JSON to PATH.")
     parser.add_argument("--verbose", action="store_true", help="Debug logging.")

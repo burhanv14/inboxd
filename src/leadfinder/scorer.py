@@ -128,8 +128,10 @@ def _fallback_score(cand: Candidate, intent: Intent) -> ScoredCandidate:
 class Scorer:
     """Scores candidates in batches of 15-25, run concurrently."""
 
-    def __init__(self, llm: LLM) -> None:
+    def __init__(self, llm: LLM, no_llm: bool = False) -> None:
         self._llm = llm
+        self._no_llm = no_llm
+        self.llm_available = not no_llm
         self._system = load("scorer.md")
         self._sem = asyncio.Semaphore(BATCH_CONCURRENCY)
         self._log = logger.bind(component="scorer")
@@ -173,6 +175,11 @@ class Scorer:
             f"Candidates JSON:\n{json.dumps(rendered, ensure_ascii=False)}\n"
         )
 
+        # --no-llm: skip the (potentially down) LLM and use keyword fallback.
+        if self._no_llm:
+            self._log.warning("scorer.no_llm_fallback", n=len(batch))
+            return self._unknown_scores(batch, intent)
+
         try:
             data = await self._llm.json_call(
                 model=model,
@@ -182,6 +189,7 @@ class Scorer:
                 response_format={"type": "json_object"},
             )
         except LLMError as exc:
+            self.llm_available = False
             self._log.warning("scorer.batch_failed", n=len(batch), error=str(exc)[:200])
             return self._unknown_scores(batch, intent)
 
@@ -196,6 +204,7 @@ class Scorer:
                 scores = []
 
         if not isinstance(scores, list):
+            self.llm_available = False
             self._log.warning("scorer.batch_not_list", n=len(batch))
             return self._unknown_scores(batch, intent)
 
@@ -233,6 +242,7 @@ class Scorer:
                 response_format={"type": "json_object"},
             )
         except LLMError as exc:
+            self.llm_available = False
             self._log.warning("scorer.repair_failed", n=len(missing), error=str(exc)[:200])
             return self._unknown_scores(missing, intent)
 
@@ -249,6 +259,8 @@ class Scorer:
     def _unknown_scores(
         self, candidates: list[Candidate], intent: Intent | None = None
     ) -> list[ScoredCandidate]:
+        # LLM did not score these candidates (fallback path).
+        self.llm_available = False
         if intent is not None:
             return [_fallback_score(c, intent) for c in candidates]
         return [

@@ -40,11 +40,13 @@ def test_interactive_exit_immediately(monkeypatch, capsys):
     ns = argparse.Namespace(
         request=None, max_results=50, min_score=7, pages=2,
         search_concurrency=8, llm_concurrency=8,
-        format="table", out=None, verbose=False, debug=False,
+        format="table", out=None, verbose=False, debug=False, no_llm=False,
     )
     code = agent.interactive(ns)
     assert code == 0
-    assert calls == []  # no pipeline built for an immediate exit
+    # Pipeline is built once at session start (reused across requests), even on
+    # an immediate exit; it is simply never used to run a request.
+    assert len(calls) == 1
 
 
 def test_interactive_processes_one_request_then_eof(monkeypatch, capsys):
@@ -74,7 +76,7 @@ def test_interactive_processes_one_request_then_eof(monkeypatch, capsys):
     ns = argparse.Namespace(
         request=None, max_results=50, min_score=7, pages=2,
         search_concurrency=8, llm_concurrency=8,
-        format="table", out=None, verbose=False, debug=False,
+        format="table", out=None, verbose=False, debug=False, no_llm=False,
     )
     code = agent.interactive(ns)
     assert code == 0

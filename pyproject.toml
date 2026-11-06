@@ -1,5 +1,5 @@
 [project]
-name = "leadfinder"
+name = "inboxd"
 version = "0.1.0"
 description = "Async agent for recruiter/lead discovery (Google Custom Search)"
 requires-python = ">=3.11"
@@ -8,7 +8,7 @@ dependencies = [
     "typer[all]>=0.12.0",
     "rich>=13.7.0",
     "httpx>=0.27.0",
-    "openai>=1.40.0",
+    "fastmcp>=0.1.0",
     "pydantic>=2.9.0",
     "pydantic-settings>=2.3.0",
     "tenacity>=8.4.0",
@@ -34,7 +34,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["leadfinder*"]
 
 [tool.ruff]
 line-length = 100
@@ -56,7 +55,7 @@ format.skip-magic-trailing-comma = false
 strict = true
 
 [tool.ruff.lint.isort]
-known-first-party = ["leadfinder"]
+known-first-party = []
 
 [tool.mypy]
 python_version = "3.11"

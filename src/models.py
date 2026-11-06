@@ -1,4 +1,4 @@
-"""Pydantic v2 data models for the leadfinder pipeline."""
+"""Pydantic v2 data models for the inboxd pipeline."""
 
 from __future__ import annotations
 

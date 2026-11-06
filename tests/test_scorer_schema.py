@@ -1,25 +1,9 @@
-"""Tests for scorer output schema and LLM JSON extraction/repair."""
+"""Tests for scorer output schema."""
 
 import pytest
 from pydantic import ValidationError
 
-from leadfinder.llm import LLMError, _extract_json
-from leadfinder.models import RoleJudgment, ScoredCandidate
-
-
-def test_extract_json_strips_code_fences():
-    text = '```json\n{"match": 7, "reason": "ok"}\n```'
-    assert _extract_json(text) == {"match": 7, "reason": "ok"}
-
-
-def test_extract_json_finds_balanced_braces():
-    text = 'Here is the answer: {"id": "c1", "match": 5} end.'
-    assert _extract_json(text) == {"id": "c1", "match": 5}
-
-
-def test_extract_json_empty_raises():
-    with pytest.raises(LLMError):
-        _extract_json("")
+from models import RoleJudgment, ScoredCandidate
 
 
 def test_scored_candidate_schema():

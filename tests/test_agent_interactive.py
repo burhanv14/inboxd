@@ -3,7 +3,7 @@
 import argparse
 
 import agent
-from leadfinder.models import Lead
+from models import Lead
 
 
 class FakePipeline:

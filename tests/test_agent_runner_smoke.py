@@ -4,7 +4,7 @@ import argparse
 import asyncio
 
 import agent
-from leadfinder.models import Lead
+from models import Lead
 
 
 class FakePipeline:
@@ -31,11 +31,10 @@ def test_run_once_table(monkeypatch, capsys):
     )
     captured = {}
 
-    def fake_build_pipeline(max_results, min_score, pages, search_concurrency, llm_concurrency, no_llm=False):
+    def fake_build_pipeline(max_results, min_score, pages, search_concurrency):
         captured.update(
             max_results=max_results, min_score=min_score, pages=pages,
-            search_concurrency=search_concurrency, llm_concurrency=llm_concurrency,
-            no_llm=no_llm,
+            search_concurrency=search_concurrency,
         )
         return FakePipeline([lead])
 
@@ -44,8 +43,8 @@ def test_run_once_table(monkeypatch, capsys):
     ns = argparse.Namespace(
         request="Technical recruiters hiring Data Analysts in Bangalore",
         max_results=20, min_score=7, pages=1,
-        search_concurrency=4, llm_concurrency=4,
-        format="table", out=None, verbose=False, debug=False, no_llm=False,
+        search_concurrency=4,
+        format="table", out=None, verbose=False, debug=False,
     )
     code = agent.run_once(ns)
     assert code == 0
@@ -58,8 +57,6 @@ def test_run_once_table(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "1 lead(s)" in out
     assert "matched (score>=min)" in out
-    # Rich table rendering is environment-dependent under capture; the CSV path
-    # (below) and a real terminal confirm the actual row content renders.
 
 
 def test_run_once_csv(tmp_path, monkeypatch):
@@ -69,15 +66,15 @@ def test_run_once_csv(tmp_path, monkeypatch):
         linkedin_url="https://www.linkedin.com/in/riya-sharma", match=9,
     )
 
-    def fake_build_pipeline(max_results, min_score, pages, search_concurrency, llm_concurrency, no_llm=False):
+    def fake_build_pipeline(max_results, min_score, pages, search_concurrency):
         return FakePipeline([lead])
 
     monkeypatch.setattr(agent, "build_pipeline", fake_build_pipeline)
 
     ns = argparse.Namespace(
         request="x", max_results=50, min_score=7, pages=2,
-        search_concurrency=8, llm_concurrency=8,
-        format="csv", out=str(out), verbose=False, debug=False, no_llm=False,
+        search_concurrency=8,
+        format="csv", out=str(out), verbose=False, debug=False,
     )
     code = agent.run_once(ns)
     assert code == 0

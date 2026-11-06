@@ -1,7 +1,7 @@
 """Unit tests for URL canonicalization and title parsing."""
 
-from leadfinder.models import Candidate, SearchHit
-from leadfinder.parser import Deduper, canonicalize_url, hit_to_candidate, parse_title
+from models import Candidate, SearchHit
+from parser import Deduper, canonicalize_url, hit_to_candidate, parse_title
 
 
 def test_canonicalize_url_strips_params_and_subdomain():

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import re
 
-from leadfinder.logging import get_logger
-from leadfinder.models import Candidate, SearchHit
+from log import get_logger
+from models import Candidate, SearchHit
 
 logger = get_logger(__name__)
 

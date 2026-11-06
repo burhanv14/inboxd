@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from leadfinder.models import SearchHit
+from models import SearchHit
 
 
 class SearchProvider(ABC):

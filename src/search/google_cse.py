@@ -14,9 +14,9 @@ from tenacity import (
     wait_exponential_jitter,
 )
 
-from leadfinder.config import settings
-from leadfinder.logging import get_logger
-from leadfinder.models import SearchHit
+from config import settings
+from log import get_logger
+from models import SearchHit
 
 logger = get_logger(__name__)
 

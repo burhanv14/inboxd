@@ -10,15 +10,15 @@ from typing import Any
 from rich.console import Console
 from rich.table import Table
 
-from leadfinder.logging import get_logger
-from leadfinder.models import Lead
+from log import get_logger
+from models import Lead
 
 logger = get_logger(__name__)
 
 
 def build_table(leads: list[Lead], prompt_version: str) -> Table:
     """Build a Rich table of leads."""
-    table = Table(title=f"leadfinder results (prompt v{prompt_version})", show_lines=False)
+    table = Table(title=f"inboxd results (prompt v{prompt_version})", show_lines=False)
     table.add_column("#", justify="right", style="cyan", no_wrap=True)
     table.add_column("Name", style="bold")
     table.add_column("Position", style="green")

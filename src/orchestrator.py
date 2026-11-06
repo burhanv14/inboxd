@@ -3,6 +3,8 @@
 Stages overlap via bounded asyncio.Queues with backpressure. Clean shutdown with
 sentinel values; try/finally; no orphaned tasks. --max-results stops early and
 cancels outstanding work. Per-stage timings and counts printed in the run summary.
+
+No LLM is used by the pipeline itself; planning and scoring are deterministic.
 """
 
 from __future__ import annotations
@@ -12,20 +14,17 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from leadfinder.llm import LLM
-from leadfinder.logging import get_logger
-from leadfinder.models import (
+from log import get_logger
+from models import (
     Candidate,
-    Intent,
     Lead,
     PlannedQuery,
     ScoredCandidate,
-    SearchHit,
 )
-from leadfinder.parser import Deduper, parse_hits
-from leadfinder.planner import Planner
-from leadfinder.scorer import Scorer
-from leadfinder.search.base import SearchProvider
+from parser import Deduper, parse_hits
+from planner import Planner
+from scorer import Scorer
+from search.base import SearchProvider
 
 logger = get_logger(__name__)
 
@@ -64,30 +63,20 @@ class Pipeline:
     def __init__(  # noqa: PLR0913, PLR0917 - pipeline wiring needs many collaborators/limits
         self,
         planner: Planner,
-        llm: LLM,
         search: SearchProvider,
         scorer: Scorer,
         search_concurrency: int = 8,
-        llm_concurrency: int = 8,
-        queue_size: int = 200,
         max_results: int = 50,
         min_score: int = 7,
-        min_results: int = 10,
         pages: int = 2,
-        second_pass: bool = False,
     ) -> None:
         self._planner = planner
-        self._llm = llm
         self._search = search
         self._scorer = scorer
         self._search_concurrency = search_concurrency
-        self._llm_concurrency = llm_concurrency
-        self._queue_size = queue_size
         self._max_results = max_results
         self._min_score = min_score
-        self._min_results = min_results
         self._pages = pages
-        self._second_pass = second_pass
         self._metrics = RunMetrics()
         self._stop = asyncio.Event()
         self._log = logger.bind(component="orchestrator")
@@ -97,10 +86,6 @@ class Pipeline:
     async def run(self, request: str) -> list[Lead]:
         leads: list[Lead] = []
         leads_lock = asyncio.Lock()
-
-        # Reset LLM availability for each run (scorer is reused across requests).
-        if hasattr(self._scorer, "llm_available"):
-            self._scorer.llm_available = True
 
         intent_holder: dict[str, Any] = {}
         queues = self._create_queues()
@@ -228,15 +213,12 @@ class Pipeline:
             try:
                 scored = await self._scorer.score(intent_json, to_score)
             except Exception as exc:
-                if hasattr(self._scorer, "llm_available"):
-                    self._scorer.llm_available = False
                 self._log.warning("score.batch_error", error=str(exc)[:160])
                 scored = [self._unknown(c) for c in to_score]
             for s in scored:
                 m.items_out += 1
-                # When the LLM scorer is unavailable, include all candidates
-                # regardless of --min-score so the user still sees results.
-                if getattr(self._scorer, "llm_available", True) and s.match < self._min_score:
+                # Keyword scorer always "available"; apply min-score filter.
+                if s.match < self._min_score:
                     continue
                 lead = self._build_lead(s)
                 async with leads_lock:

@@ -2,14 +2,14 @@
 
 import asyncio
 
-from leadfinder.models import (
+from models import (
     Intent,
     PlannedQuery,
     QueryPlan,
     ScoredCandidate,
     SearchHit,
 )
-from leadfinder.orchestrator import Pipeline
+from orchestrator import Pipeline
 
 
 class FakePlanner:
@@ -81,9 +81,9 @@ def test_orchestrator_end_to_end_filters_by_score():
         search = FakeSearch(hits)
         scorer = FakeScorer(scored)
         pipe = Pipeline(
-            planner=planner, llm=None, search=search, scorer=scorer,
+            planner=planner, search=search, scorer=scorer,
             max_results=50, min_score=7, pages=1,
-            second_pass=False, search_concurrency=4, llm_concurrency=4,
+            search_concurrency=4,
         )
         leads = await pipe.run("Technical recruiters hiring Data Analysts in Bangalore")
         await search.close()

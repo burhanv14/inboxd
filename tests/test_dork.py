@@ -1,6 +1,6 @@
 """Unit tests for dork building and validation."""
 
-from leadfinder.dork import build_dork, dedup_queries, repair_dork, validate_dork
+from dork import build_dork, dedup_queries, repair_dork, validate_dork
 
 
 def test_build_dork_strict():

@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from leadfinder.logging import get_logger
+from log import get_logger
 
 logger = get_logger(__name__)
 

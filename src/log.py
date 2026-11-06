@@ -1,4 +1,4 @@
-"""Structured logging setup for leadfinder.
+"""Structured logging setup for inboxd.
 
 Uses structlog with JSON output by default (console in dev). API keys and other
 secrets are never logged.
@@ -12,7 +12,7 @@ from typing import Any
 
 import structlog
 
-from leadfinder.config import settings
+from config import settings
 
 
 def configure_logging(debug: bool = False, json_logs: bool = True) -> None:
